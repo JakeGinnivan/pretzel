@@ -15,7 +15,8 @@ namespace Pretzel.Logic.Templating.Context
     [PartCreationPolicy(CreationPolicy.Shared)]
     public class SiteContextGenerator
     {
-        private static readonly Markdown Markdown = new Markdown();
+        static readonly Markdown Markdown = new Markdown();
+        readonly Dictionary<string, Page> pageCache = new Dictionary<string, Page>();
         readonly IFileSystem fileSystem;
 
         [ImportingConstructor]
@@ -105,9 +106,12 @@ namespace Pretzel.Logic.Templating.Context
         {
             try
             {
+                if (pageCache.ContainsKey(file))
+                    return pageCache[file];
+
                 var contents = SafeReadContents(file);
                 var header = contents.YamlHeader();
-                var post = new Page
+                var page = new Page
                                 {
                                     Title = header.ContainsKey("title") ? header["title"].ToString() : "this is a post",
                                     Date = header.ContainsKey("date") ? DateTime.Parse(header["date"].ToString()) : file.Datestamp(),
@@ -118,11 +122,15 @@ namespace Pretzel.Logic.Templating.Context
                                 };
 
                 if (header.ContainsKey("permalink"))
-                    post.Url = EvaluatePermalink(header["permalink"].ToString(), post);
+                    page.Url = EvaluatePermalink(header["permalink"].ToString(), page);
                 else if (config.ContainsKey("permalink"))
-                    post.Url = EvaluatePermalink(config["permalink"].ToString(), post);
+                    page.Url = EvaluatePermalink(config["permalink"].ToString(), page);
 
-                return post;
+                pageCache.Add(file, page);
+
+                page.DirectoryPages = GetDirectoryPages(context, config, Path.GetDirectoryName(file)).ToList();
+
+                return page;
             }
             catch (Exception e)
             {
@@ -132,6 +140,15 @@ namespace Pretzel.Logic.Templating.Context
             }
 
             return null;
+        }
+
+        private IEnumerable<Page> GetDirectoryPages(SiteContext context, IDictionary<string, object> config, string forDirectory)
+        {
+            return fileSystem
+                .Directory
+                .GetFiles(forDirectory, "*.*", SearchOption.TopDirectoryOnly)
+                .Select(file => CreatePage(context, config, file))
+                .Where(page => page != null);
         }
 
         private static string RenderContent(string file, string contents, IDictionary<string, object> header)

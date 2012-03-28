@@ -18,6 +18,7 @@ namespace Pretzel.Logic.Templating.Context
         public string Id { get; set; }
         public IEnumerable<string> Categories { get; set; }
         public IEnumerable<string> Tags { get; set; }
+        public IEnumerable<Page> DirectoryPages { get; set; }
         public string Content { get; set; }
         public string Filepath { get; set; }
         public IDictionary<string, object> Bag { get; set; }
@@ -28,9 +29,5 @@ namespace Pretzel.Logic.Templating.Context
         {
             get { return (string)Bag["layout"]; }
         }
-    }
-
-    public class NonProcessedPage : Page
-    {
     }
 }
