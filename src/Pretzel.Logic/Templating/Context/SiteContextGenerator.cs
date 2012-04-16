@@ -78,13 +78,11 @@ namespace Pretzel.Logic.Templating.Context
                                      };
                     continue;
                 }
-                else
-                {
-                    var page = CreatePage(context, config, file, false);
 
-                    if (page != null)
-                        yield return page;
-                }
+                var page = CreatePage(context, config, file, isPost: false);
+
+                if (page != null)
+                    yield return page;
             }
         }
 
@@ -95,7 +93,7 @@ namespace Pretzel.Logic.Templating.Context
             {
                 return fileSystem.Directory
                     .GetFiles(postsFolder, "*.*", SearchOption.AllDirectories)
-                    .Select(file => CreatePage(context, config, file, true))
+                    .Select(file => CreatePage(context, config, file, isPost: true))
                     .Where(post => post != null);
             }
 
@@ -176,7 +174,7 @@ namespace Pretzel.Logic.Templating.Context
 
                 pageCache.Add(file, page);
 
-                page.DirectoryPages = GetDirectoryPages(context, config, Path.GetDirectoryName(file)).ToList();
+                page.DirectoryPages = GetDirectoryPages(context, config, Path.GetDirectoryName(file), isPost).ToList();
 
                 if (isPost)
                 {
@@ -200,12 +198,12 @@ namespace Pretzel.Logic.Templating.Context
             return null;
         }
 
-        private IEnumerable<Page> GetDirectoryPages(SiteContext context, IDictionary<string, object> config, string forDirectory)
+        private IEnumerable<Page> GetDirectoryPages(SiteContext context, IDictionary<string, object> config, string forDirectory, bool isPost)
         {
             return fileSystem
                 .Directory
                 .GetFiles(forDirectory, "*.*", SearchOption.TopDirectoryOnly)
-                .Select(file => CreatePage(context, config, file))
+                .Select(file => CreatePage(context, config, file, isPost))
                 .Where(page => page != null);
         }
 
