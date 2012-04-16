@@ -48,6 +48,7 @@ namespace Pretzel.Logic.Templating.Context
                 };
 
                 context.Posts = BuildPosts(config, context).OrderByDescending(p => p.Date).ToList();
+            BuildTagsAndCategories(context);
 
                 context.Pages = BuildPages(config, context).ToList();
 
@@ -77,11 +78,13 @@ namespace Pretzel.Logic.Templating.Context
                                      };
                     continue;
                 }
+                else
+                {
+                    var page = CreatePage(context, config, file, false);
 
-                var page = CreatePage(context, config, file);
-
-                if (page != null)
-                    yield return page;
+                    if (page != null)
+                        yield return page;
+                }
             }
         }
 
@@ -92,11 +95,47 @@ namespace Pretzel.Logic.Templating.Context
             {
                 return fileSystem.Directory
                     .GetFiles(postsFolder, "*.*", SearchOption.AllDirectories)
-                    .Select(file => CreatePage(context, config, file))
+                    .Select(file => CreatePage(context, config, file, true))
                     .Where(post => post != null);
             }
 
             return Enumerable.Empty<Page>();
+        }
+
+        private static void BuildTagsAndCategories(SiteContext context)
+        {
+            var tags = new Dictionary<string, List<Page>>();
+            var categories = new Dictionary<string, List<Page>>();
+
+            foreach (var post in context.Posts)
+            {
+                foreach (var tagName in post.Tags)
+                {
+                    if (tags.ContainsKey(tagName))
+                    {
+                        tags[tagName].Add(post);
+                    }
+                    else
+                    {
+                        tags.Add(tagName, new List<Page> {post});
+                    }
+                }
+
+                foreach (var catName in post.Categories)
+                {
+                    if (categories.ContainsKey(catName))
+                    {
+                        categories[catName].Add(post);
+                    }
+                    else
+                    {
+                        categories.Add(catName, new List<Page> { post });
+                    }
+                }
+            }
+
+            context.Tags = tags.Select(x => new Tag { Name = x.Key, Posts = x.Value }).OrderBy(x => x.Name).ToList();
+            context.Categories = categories.Select(x => new Category { Name = x.Key, Posts = x.Value }).OrderBy(x=>x.Name).ToList();
         }
 
         private bool ContainsYamlFrontMatter(string file)
@@ -111,7 +150,7 @@ namespace Pretzel.Logic.Templating.Context
             return relativePath.StartsWith("_") || relativePath.StartsWith(".");
         }
 
-        private Page CreatePage(SiteContext context, IDictionary<string, object> config, string file)
+        private Page CreatePage(SiteContext context, IDictionary<string, object> config, string file, bool isPost)
         {
             try
             {
@@ -139,7 +178,17 @@ namespace Pretzel.Logic.Templating.Context
 
                 page.DirectoryPages = GetDirectoryPages(context, config, Path.GetDirectoryName(file)).ToList();
 
+                if (isPost)
+                {
+                    if (header.ContainsKey("categories"))
+                        page.Categories = header["categories"] as IEnumerable<string>;
+
+                    if (header.ContainsKey("tags"))
+                        page.Tags = header["tags"] as IEnumerable<string>;
+                }
+                
                 return page;
+
             }
             catch (Exception e)
             {
